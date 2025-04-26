@@ -1,67 +1,91 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Smart Contract Compiler & Deployer</title>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <title>Solidity Compiler & Deployer</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script src="https://binaries.soliditylang.org/bin/soljson-v0.8.21+commit.d9974bed.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; background: #f2f2f2; padding: 20px; }
-    h2, h3 { color: #333; }
-    textarea, pre, input { width: 100%; font-family: monospace; border: 1px solid #ccc; border-radius: 5px; padding: 10px; box-sizing: border-box; }
-    textarea { height: 250px; margin-bottom: 10px; }
-    input { margin-bottom: 10px; }
-    button { padding: 10px 20px; margin-right: 10px; border: none; background: #007bff; color: white; border-radius: 5px; cursor: pointer; }
-    button:hover { background: #0056b3; }
-    #status { margin-top: 10px; font-weight: bold; }
+    body { font-family: monospace; background: #1e1e1e; color: #ddd; padding: 20px; }
+    textarea { width: 100%; height: 300px; background: #111; color: #0f0; border: 1px solid #333; padding: 10px; }
+    button { margin: 5px; padding: 10px 20px; background: #0f0; color: #111; border: none; cursor: pointer; }
+    #output, #abi, #bytecode, #status { background: #111; padding: 10px; margin-top: 10px; white-space: pre-wrap; border: 1px solid #444; }
+    select { padding: 5px; background: #111; color: #fff; }
     .error { color: red; }
-    .success { color: green; }
   </style>
 </head>
-<body><h2>Solidity Smart Contract Compiler & Deployer</h2><textarea id="sourceCode">
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+<body>
+  <h1>Solidity Smart Contract Compiler & Deployer</h1>
+  <label>Solidity Version (v0.8.21):</label>
+  <select id="version" disabled>
+    <option selected>v0.8.21</option>
+  </select>
+  <div id="status">Loading compiler...</div>
 
-contract HelloWorld {
-    string public greet = "Hello Web3!";
-}
-</textarea><input type="text" id="contractName" placeholder="Enter contract name (e.g., HelloWorld)" /><button onclick="compileContract()">Compile</button> <button onclick="deployContract()">Deploy</button> <button onclick="clearOutput()">Clear</button>
+  <textarea id="code">// Write your Solidity code here
+pragma solidity ^0.8.21;
 
-<div id="status"></div><h3>ABI</h3>
-<pre id="abi"></pre>
-<h3>Bytecode</h3>
-<pre id="bytecode"></pre>
-<h3>Deployed Address</h3>
-<pre id="deployedAddress"></pre><script>
-  let compiledAbi;
-  let compiledBytecode;
-  let solcReady = false;
+contract Test {
+    uint public value;
 
-  window.onload = () => {
-    if (typeof window.Module === 'undefined') {
-      document.getElementById('status').innerHTML = '<span class="error">Compiler not loaded properly.</span>';
-      return;
+    function set(uint _value) public {
+        value = _value;
     }
-    window.solc = solc.setupMethods(solc);
-    solcReady = true;
-    document.getElementById('status').textContent = 'Compiler loaded successfully';
-  };
+}</textarea>
 
-  function compileContract() {
-    if (!solcReady) {
-      document.getElementById("status").innerHTML = '<span class="error">Compiler not ready.</span>';
-      return;
+  <button onclick="compileContract()">Compile</button>
+  <button onclick="deployContract()">Deploy</button>
+  <button onclick="clearConsole()">Clear Console</button>
+
+  <div id="output"></div>
+  <h3>Bytecode</h3>
+  <div id="bytecode"></div>
+  <h3>ABI</h3>
+  <div id="abi"></div>
+
+  <script>
+    let solcReady = false;
+    let compiledContract;
+    let provider, signer;
+
+    window.addEventListener('load', () => {
+      if (typeof window.Module !== 'undefined') {
+        window.solc = solc.setupMethods(solc);
+        solcReady = true;
+        document.getElementById('status').textContent = 'Compiler loaded';
+        if (typeof window.ethereum !== 'undefined') {
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          provider.send("eth_requestAccounts", []).then(() => {
+            signer = provider.getSigner();
+            log('MetaMask connected');
+          });
+        } else {
+          log('MetaMask not detected');
+        }
+      } else {
+        document.getElementById('status').innerHTML = '<span class="error">Compiler failed to load.</span>';
+      }
+    });
+
+    function log(msg) {
+      document.getElementById('output').innerText += msg + '\n';
     }
 
-    const source = document.getElementById("sourceCode").value;
-    const contractNameInput = document.getElementById("contractName").value.trim();
-    document.getElementById("status").textContent = "Compiling...";
+    function clearConsole() {
+      document.getElementById('output').innerText = '';
+      document.getElementById('bytecode').innerText = '';
+      document.getElementById('abi').innerText = '';
+    }
 
-    try {
+    function compileContract() {
+      if (!solcReady) return log("Compiler not ready");
+
+      const sourceCode = document.getElementById('code').value;
       const input = {
         language: "Solidity",
         sources: {
           "Contract.sol": {
-            content: source
+            content: sourceCode
           }
         },
         settings: {
@@ -73,70 +97,38 @@ contract HelloWorld {
         }
       };
 
-      const output = JSON.parse(solc.compile(JSON.stringify(input)));
+      try {
+        const output = JSON.parse(solc.compile(JSON.stringify(input)));
+        if (output.errors) {
+          output.errors.forEach(e => {
+            const type = e.severity === 'error' ? '[ERROR]' : '[WARNING]';
+            log(`${type} ${e.formattedMessage}`);
+          });
+        }
 
-      if (output.errors) {
-        const errors = output.errors.map(e => `${e.severity.toUpperCase()}: ${e.formattedMessage}`).join('\n');
-        document.getElementById("status").innerHTML = `<span class='error'>${errors}</span>`;
-        return;
+        const contractName = Object.keys(output.contracts["Contract.sol"])[0];
+        compiledContract = output.contracts["Contract.sol"][contractName];
+
+        log(`Compiled ${contractName}`);
+        document.getElementById('bytecode').textContent = compiledContract.evm.bytecode.object;
+        document.getElementById('abi').textContent = JSON.stringify(compiledContract.abi, null, 2);
+      } catch (err) {
+        log('[ERROR] ' + err.message);
       }
-
-      const contractFile = output.contracts["Contract.sol"];
-      const contractName = contractNameInput || Object.keys(contractFile)[0];
-
-      if (!contractFile[contractName]) {
-        document.getElementById("status").innerHTML = `<span class='error'>Contract name '${contractName}' not found.</span>`;
-        return;
-      }
-
-      const contract = contractFile[contractName];
-
-      compiledAbi = contract.abi;
-      compiledBytecode = contract.evm.bytecode.object;
-
-      document.getElementById("abi").textContent = JSON.stringify(compiledAbi, null, 2);
-      document.getElementById("bytecode").textContent = compiledBytecode;
-      document.getElementById("status").innerHTML = '<span class="success">Compiled successfully</span>';
-    } catch (e) {
-      document.getElementById("status").innerHTML = `<span class='error'>Error: ${e.message}</span>`;
-    }
-  }
-
-  async function deployContract() {
-    if (!compiledAbi || !compiledBytecode) {
-      document.getElementById("status").innerHTML = '<span class="error">Compile the contract before deploying.</span>';
-      return;
     }
 
-    try {
-      if (typeof window.ethereum === 'undefined') {
-        document.getElementById("status").innerHTML = '<span class="error">MetaMask is not available.</span>';
-        return;
+    async function deployContract() {
+      if (!compiledContract) return log("Compile first.");
+      try {
+        const factory = new ethers.ContractFactory(compiledContract.abi, compiledContract.evm.bytecode.object, signer);
+        const contract = await factory.deploy();
+        log("Deploying...");
+        await contract.deployed();
+        log("Contract deployed at: " + contract.address);
+      } catch (err) {
+        log('[DEPLOY ERROR] ' + err.message);
       }
-
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-      const signer = provider.getSigner();
-
-      document.getElementById("status").textContent = "Deploying...";
-      const factory = new ethers.ContractFactory(compiledAbi, compiledBytecode, signer);
-      const contract = await factory.deploy();
-      await contract.deployed();
-
-      document.getElementById("deployedAddress").textContent = contract.address;
-      document.getElementById("status").innerHTML = '<span class="success">Deployed successfully</span>';
-    } catch (e) {
-      document.getElementById("status").innerHTML = `<span class='error'>Deployment Error: ${e.message}</span>`;
     }
-  }
-
-  function clearOutput() {
-    document.getElementById("abi").textContent = "";
-    document.getElementById("bytecode").textContent = "";
-    document.getElementById("deployedAddress").textContent = "";
-    document.getElementById("status").textContent = "";
-    compiledAbi = null;
-    compiledBytecode = null;
-  }
-</script></body>
+  </script>
+</body>
 </html>
