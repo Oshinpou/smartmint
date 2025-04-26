@@ -9,19 +9,26 @@
     body { font-family: monospace; background: #1e1e1e; color: #ddd; padding: 20px; }
     textarea { width: 100%; height: 300px; background: #111; color: #0f0; border: 1px solid #333; padding: 10px; }
     button { margin: 5px; padding: 10px 20px; background: #0f0; color: #111; border: none; cursor: pointer; }
-    #output, #abi, #bytecode, #status { background: #111; padding: 10px; margin-top: 10px; white-space: pre-wrap; border: 1px solid #444; }
+    #output, #abi, #bytecode, #status, #contractName { background: #111; padding: 10px; margin-top: 10px; white-space: pre-wrap; border: 1px solid #444; }
     select { padding: 5px; background: #111; color: #fff; }
     .error { color: red; }
+    .success { color: green; }
+    .contract-output { color: #ffcc00; font-weight: bold; }
   </style>
 </head>
 <body>
   <h1>Solidity Smart Contract Compiler & Deployer</h1>
+  
+  <!-- Compiler Status -->
+  <div id="status">Loading compiler...</div>
+  
+  <!-- Contract Version Selector -->
   <label>Solidity Version (v0.8.21):</label>
   <select id="version" disabled>
     <option selected>v0.8.21</option>
   </select>
-  <div id="status">Loading compiler...</div>
-
+  
+  <!-- Contract Code Input -->
   <textarea id="code">// Write your Solidity code here
 pragma solidity ^0.8.21;
 
@@ -33,15 +40,24 @@ contract Test {
     }
 }</textarea>
 
+  <!-- Contract Actions -->
   <button onclick="compileContract()">Compile</button>
   <button onclick="deployContract()">Deploy</button>
   <button onclick="clearConsole()">Clear Console</button>
+  <button onclick="clearState()">Clear State</button>
 
-  <div id="output"></div>
+  <!-- Output Sections -->
+  <div id="contractName"></div>
   <h3>Bytecode</h3>
   <div id="bytecode"></div>
   <h3>ABI</h3>
   <div id="abi"></div>
+  <h3>Deployment Status</h3>
+  <div id="output"></div>
+
+  <!-- Gas estimation -->
+  <h3>Gas Estimation</h3>
+  <div id="gas"></div>
 
   <script>
     let solcReady = false;
@@ -53,6 +69,7 @@ contract Test {
         window.solc = solc.setupMethods(solc);
         solcReady = true;
         document.getElementById('status').textContent = 'Compiler loaded';
+        
         if (typeof window.ethereum !== 'undefined') {
           provider = new ethers.providers.Web3Provider(window.ethereum);
           provider.send("eth_requestAccounts", []).then(() => {
@@ -75,6 +92,12 @@ contract Test {
       document.getElementById('output').innerText = '';
       document.getElementById('bytecode').innerText = '';
       document.getElementById('abi').innerText = '';
+      document.getElementById('gas').innerText = '';
+    }
+
+    function clearState() {
+      document.getElementById('code').value = '';
+      clearConsole();
     }
 
     function compileContract() {
@@ -108,6 +131,7 @@ contract Test {
 
         const contractName = Object.keys(output.contracts["Contract.sol"])[0];
         compiledContract = output.contracts["Contract.sol"][contractName];
+        document.getElementById('contractName').textContent = `Contract Name: ${contractName}`;
 
         log(`Compiled ${contractName}`);
         document.getElementById('bytecode').textContent = compiledContract.evm.bytecode.object;
@@ -121,10 +145,16 @@ contract Test {
       if (!compiledContract) return log("Compile first.");
       try {
         const factory = new ethers.ContractFactory(compiledContract.abi, compiledContract.evm.bytecode.object, signer);
+        const gasEstimate = await factory.estimateGas();
+        document.getElementById('gas').innerText = `Estimated Gas: ${gasEstimate.toString()}`;
+
+        log("Deploying contract...");
         const contract = await factory.deploy();
-        log("Deploying...");
         await contract.deployed();
         log("Contract deployed at: " + contract.address);
+
+        log(`Transaction Hash: ${contract.deployTransaction.hash}`);
+        log(`Block Number: ${contract.deployTransaction.blockNumber}`);
       } catch (err) {
         log('[DEPLOY ERROR] ' + err.message);
       }
