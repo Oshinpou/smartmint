@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Solidity Compiler & Deployer</title>
+  <title>Solidity Smart Contract Compiler & Deployer</title>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script src="https://binaries.soliditylang.org/bin/soljson-v0.8.21+commit.d9974bed.js"></script>
   <style>
@@ -22,12 +22,16 @@
   <!-- Compiler Status -->
   <div id="status">Loading compiler...</div>
   
-  <!-- Contract Version Selector -->
+  <!-- Solidity Version Selector -->
   <label>Solidity Version (v0.8.21):</label>
   <select id="version" disabled>
     <option selected>v0.8.21</option>
   </select>
   
+  <!-- Contract Name Input -->
+  <label for="contract-name">Enter Contract Name:</label>
+  <input type="text" id="contract-name" placeholder="e.g., TestContract" />
+
   <!-- Contract Code Input -->
   <textarea id="code">// Write your Solidity code here
 pragma solidity ^0.8.21;
@@ -69,7 +73,7 @@ contract Test {
         window.solc = solc.setupMethods(solc);
         solcReady = true;
         document.getElementById('status').textContent = 'Compiler loaded';
-        
+
         if (typeof window.ethereum !== 'undefined') {
           provider = new ethers.providers.Web3Provider(window.ethereum);
           provider.send("eth_requestAccounts", []).then(() => {
@@ -97,6 +101,7 @@ contract Test {
 
     function clearState() {
       document.getElementById('code').value = '';
+      document.getElementById('contract-name').value = '';
       clearConsole();
     }
 
@@ -129,7 +134,7 @@ contract Test {
           });
         }
 
-        const contractName = Object.keys(output.contracts["Contract.sol"])[0];
+        const contractName = document.getElementById('contract-name').value || Object.keys(output.contracts["Contract.sol"])[0];
         compiledContract = output.contracts["Contract.sol"][contractName];
         document.getElementById('contractName').textContent = `Contract Name: ${contractName}`;
 
@@ -145,6 +150,8 @@ contract Test {
       if (!compiledContract) return log("Compile first.");
       try {
         const factory = new ethers.ContractFactory(compiledContract.abi, compiledContract.evm.bytecode.object, signer);
+
+        // Gas estimation
         const gasEstimate = await factory.estimateGas();
         document.getElementById('gas').innerText = `Estimated Gas: ${gasEstimate.toString()}`;
 
@@ -153,8 +160,12 @@ contract Test {
         await contract.deployed();
         log("Contract deployed at: " + contract.address);
 
-        log(`Transaction Hash: ${contract.deployTransaction.hash}`);
-        log(`Block Number: ${contract.deployTransaction.blockNumber}`);
+        // Transaction Confirmation
+        const transaction = contract.deployTransaction;
+        log(`Transaction Hash: ${transaction.hash}`);
+        log(`Block Number: ${transaction.blockNumber}`);
+
+        // Optional: Verify contract on etherscan or other services (integrate after deployment)
       } catch (err) {
         log('[DEPLOY ERROR] ' + err.message);
       }
