@@ -1,144 +1,148 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Solidity Compiler & Deployer</title>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 2rem;
-            background: #f0f2f5;
-        }
-        textarea {
-            width: 100%;
-            height: 300px;
-            margin-bottom: 1rem;
-        }
-        button {
-            margin-right: 1rem;
-            padding: 0.5rem 1rem;
-            cursor: pointer;
-        }
-        pre {
-            background: #fff;
-            padding: 1rem;
-            overflow-x: auto;
-            border: 1px solid #ccc;
-        }
-        h3 {
-            margin-top: 2rem;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Solidity Compiler & Deployer</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      background: #f4f4f4;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      margin-bottom: 10px;
+    }
+    pre {
+      background: #eaeaea;
+      padding: 10px;
+      overflow-x: auto;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin-right: 10px;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-    <h1>Solidity Compiler & Deployer</h1>
-    <textarea id="code">// SPDX-License-Identifier: MIT
+
+  <h2>Smart Contract Compiler & Deployer</h2>
+
+  <textarea id="code">
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract HelloWorld {
-    string public greet = "Hello, World!";
-}</textarea>
-    <div>
-        <button onclick="compileContract()">Compile</button>
-        <button onclick="deployContract()">Deploy</button>
-    </div>
-    <div>
-        <h3>ABI:</h3>
-        <pre id="abi"></pre>
-        <h3>Bytecode:</h3>
-        <pre id="bytecode"></pre>
-        <h3>Contract Address:</h3>
-        <pre id="address"></pre>
-    </div>
+contract Hello {
+    string public message = "Hello, Blockchain!";
+}
+  </textarea>
 
-    <script>
-        // Load solc asynchronously before using it
-        let solcLoaded = false;
-        let solc;
+  <button onclick="compileContract()">Compile</button>
+  <button onclick="deployContract()">Deploy</button>
 
-        // Dynamically load the Solidity compiler (solc-js)
-        async function loadSolc() {
-            if (!solcLoaded) {
-                const script = document.createElement("script");
-                script.src = "https://cdn.jsdelivr.net/npm/solc@0.8.21/soljson.min.js";
-                script.onload = () => {
-                    solc = window.solc;
-                    solcLoaded = true;
-                    console.log("solc loaded successfully!");
-                };
-                document.head.appendChild(script);
+  <h3>ABI</h3>
+  <pre id="abi"></pre>
+
+  <h3>Bytecode</h3>
+  <pre id="bytecode"></pre>
+
+  <h3>Deployed Address</h3>
+  <pre id="address"></pre>
+
+  <script>
+    let solcLoaded = false;
+    let solc;
+    let compiledAbi = null;
+    let compiledBytecode = null;
+
+    function loadSolc() {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/solc@0.8.21/soljson.min.js";
+      script.onload = () => {
+        window.Module = {};
+        solc = window.solc;
+        solcLoaded = true;
+        console.log("solc-js loaded");
+      };
+      document.head.appendChild(script);
+    }
+
+    loadSolc();
+
+    async function compileContract() {
+      if (!solcLoaded || typeof solc.compile !== "function") {
+        alert("Solidity compiler not ready yet. Please wait a few seconds.");
+        return;
+      }
+
+      const source = document.getElementById("code").value;
+
+      const input = {
+        language: "Solidity",
+        sources: {
+          "Contract.sol": { content: source }
+        },
+        settings: {
+          outputSelection: {
+            "*": {
+              "*": ["abi", "evm.bytecode"]
             }
+          }
+        }
+      };
+
+      try {
+        const output = JSON.parse(solc.compile(JSON.stringify(input)));
+
+        if (output.errors) {
+          const messages = output.errors.map(err => err.formattedMessage).join("\n\n");
+          alert("Compiler Messages:\n\n" + messages);
         }
 
-        loadSolc();
+        const contracts = output.contracts["Contract.sol"];
+        const contractName = Object.keys(contracts)[0];
+        const contract = contracts[contractName];
 
-        let compiledAbi = null;
-        let compiledBytecode = null;
+        compiledAbi = contract.abi;
+        compiledBytecode = contract.evm.bytecode.object;
 
-        // Compile function
-        async function compileContract() {
-            if (!solcLoaded) {
-                return alert("Solidity compiler (solc) is still loading, please wait.");
-            }
+        document.getElementById("abi").textContent = JSON.stringify(compiledAbi, null, 2);
+        document.getElementById("bytecode").textContent = compiledBytecode;
+      } catch (err) {
+        alert("Compilation error: " + err.message);
+      }
+    }
 
-            const source = document.getElementById("code").value;
-            const input = {
-                language: "Solidity",
-                sources: {
-                    "Contract.sol": {
-                        content: source
-                    }
-                },
-                settings: {
-                    outputSelection: {
-                        "*": {
-                            "*": ["abi", "evm.bytecode"]
-                        }
-                    }
-                }
-            };
+    async function deployContract() {
+      if (!compiledAbi || !compiledBytecode) {
+        alert("Compile the contract first.");
+        return;
+      }
 
-            try {
-                const output = JSON.parse(solc.compile(JSON.stringify(input)));
-                const contractFile = output.contracts["Contract.sol"];
-                const contractName = Object.keys(contractFile)[0];
+      if (!window.ethereum) {
+        alert("MetaMask not detected.");
+        return;
+      }
 
-                compiledAbi = contractFile[contractName].abi;
-                compiledBytecode = contractFile[contractName].evm.bytecode.object;
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      const signer = provider.getSigner();
 
-                // Show ABI and Bytecode in output
-                document.getElementById("abi").textContent = JSON.stringify(compiledAbi, null, 2);
-                document.getElementById("bytecode").textContent = compiledBytecode;
-            } catch (error) {
-                alert("Error compiling contract: " + error.message);
-            }
-        }
+      const factory = new ethers.ContractFactory(compiledAbi, compiledBytecode, signer);
 
-        // Deploy function
-        async function deployContract() {
-            if (!compiledAbi || !compiledBytecode) {
-                return alert("Please compile the contract first.");
-            }
+      try {
+        const contract = await factory.deploy();
+        await contract.deployed();
+        document.getElementById("address").textContent = contract.address;
+      } catch (err) {
+        alert("Deployment failed: " + err.message);
+      }
+    }
+  </script>
 
-            if (typeof window.ethereum === "undefined") {
-                return alert("MetaMask is not installed.");
-            }
-
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            await provider.send("eth_requestAccounts", []);
-            const signer = provider.getSigner();
-
-            const factory = new ethers.ContractFactory(compiledAbi, compiledBytecode, signer);
-            try {
-                const contract = await factory.deploy();
-                await contract.deployed();
-                document.getElementById("address").textContent = contract.address;
-            } catch (error) {
-                alert("Error deploying contract: " + error.message);
-            }
-        }
-    </script>
 </body>
 </html>
