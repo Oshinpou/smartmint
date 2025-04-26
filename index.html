@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Solidity Compiler & Deployer</title>
-    <script src="https://cdn.jsdelivr.net/npm/solc@0.8.21/soljson.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <style>
         body {
@@ -55,11 +54,35 @@ contract HelloWorld {
     </div>
 
     <script>
+        // Load solc asynchronously before using it
+        let solcLoaded = false;
+        let solc;
+
+        // Dynamically load the Solidity compiler (solc-js)
+        async function loadSolc() {
+            if (!solcLoaded) {
+                const script = document.createElement("script");
+                script.src = "https://cdn.jsdelivr.net/npm/solc@0.8.21/soljson.min.js";
+                script.onload = () => {
+                    solc = window.solc;
+                    solcLoaded = true;
+                    console.log("solc loaded successfully!");
+                };
+                document.head.appendChild(script);
+            }
+        }
+
+        loadSolc();
+
         let compiledAbi = null;
         let compiledBytecode = null;
 
         // Compile function
         async function compileContract() {
+            if (!solcLoaded) {
+                return alert("Solidity compiler (solc) is still loading, please wait.");
+            }
+
             const source = document.getElementById("code").value;
             const input = {
                 language: "Solidity",
