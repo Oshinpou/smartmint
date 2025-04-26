@@ -3,13 +3,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Solidity Compiler & Deployer</title>
+  <script src="https://cdn.jsdelivr.net/npm/solc-js@0.8.21/solc.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/solc@0.8.21/soljson.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 2rem; }
+    body { font-family: Arial, sans-serif; margin: 2rem; background: #f0f2f5; }
     textarea { width: 100%; height: 300px; margin-bottom: 1rem; }
-    button { margin-right: 1rem; padding: 0.5rem 1rem; }
-    pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; }
+    button { margin-right: 1rem; padding: 0.5rem 1rem; cursor: pointer; }
+    pre { background: #fff; padding: 1rem; overflow-x: auto; border: 1px solid #ccc; }
+    h3 { margin-top: 2rem; }
   </style>
 </head>
 <body>
@@ -24,48 +25,56 @@ pragma solidity ^0.8.0;contract HelloWorld { string public greet = "Hello, World
   <div>
     <h3>ABI:</h3>
     <pre id="abi"></pre>
+    <h3>Bytecode:</h3>
+    <pre id="bytecode"></pre>
     <h3>Contract Address:</h3>
     <pre id="address"></pre>
   </div>  <script>
-    let abi = null;
-    let bytecode = null;
+    let compiledAbi = null;
+    let compiledBytecode = null;
 
     async function compileContract() {
       const source = document.getElementById("code").value;
 
       const input = {
-        language: "Solidity",
+        language: 'Solidity',
         sources: {
-          "Contract.sol": {
-            content: source,
-          },
+          'Contract.sol': {
+            content: source
+          }
         },
         settings: {
           outputSelection: {
-            "*": {
-              "*": ["abi", "evm.bytecode"],
-            },
-          },
-        },
+            '*': {
+              '*': ['abi', 'evm.bytecode']
+            }
+          }
+        }
       };
 
       const output = JSON.parse(solc.compile(JSON.stringify(input)));
-      const contractFile = output.contracts["Contract.sol"];
+      const contractFile = output.contracts['Contract.sol'];
       const contractName = Object.keys(contractFile)[0];
-      abi = contractFile[contractName].abi;
-      bytecode = contractFile[contractName].evm.bytecode.object;
 
-      document.getElementById("abi").textContent = JSON.stringify(abi, null, 2);
+      compiledAbi = contractFile[contractName].abi;
+      compiledBytecode = contractFile[contractName].evm.bytecode.object;
+
+      document.getElementById("abi").textContent = JSON.stringify(compiledAbi, null, 2);
+      document.getElementById("bytecode").textContent = compiledBytecode;
     }
 
     async function deployContract() {
-      if (!abi || !bytecode) return alert("Compile the contract first!");
+      if (!compiledAbi || !compiledBytecode) return alert("Please compile the contract first.");
+
+      if (typeof window.ethereum === 'undefined') {
+        return alert("MetaMask is not installed.");
+      }
 
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       await provider.send("eth_requestAccounts", []);
       const signer = provider.getSigner();
 
-      const factory = new ethers.ContractFactory(abi, bytecode, signer);
+      const factory = new ethers.ContractFactory(compiledAbi, compiledBytecode, signer);
       const contract = await factory.deploy();
       await contract.deployed();
 
