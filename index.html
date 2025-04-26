@@ -1,84 +1,121 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Solidity Compiler & Deployer</title>
-  <script src="https://cdn.jsdelivr.net/npm/solc-js@0.8.21/solc.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 2rem; background: #f0f2f5; }
-    textarea { width: 100%; height: 300px; margin-bottom: 1rem; }
-    button { margin-right: 1rem; padding: 0.5rem 1rem; cursor: pointer; }
-    pre { background: #fff; padding: 1rem; overflow-x: auto; border: 1px solid #ccc; }
-    h3 { margin-top: 2rem; }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Solidity Compiler & Deployer</title>
+    <script src="https://cdn.jsdelivr.net/npm/solc@0.8.21/soljson.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+            background: #f0f2f5;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            margin-bottom: 1rem;
+        }
+        button {
+            margin-right: 1rem;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+        }
+        pre {
+            background: #fff;
+            padding: 1rem;
+            overflow-x: auto;
+            border: 1px solid #ccc;
+        }
+        h3 {
+            margin-top: 2rem;
+        }
+    </style>
 </head>
 <body>
-  <h1>Solidity Compiler & Deployer</h1>
-  <textarea id="code">// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;contract HelloWorld { string public greet = "Hello, World!"; }</textarea>
+    <h1>Solidity Compiler & Deployer</h1>
+    <textarea id="code">// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
-  <div>
-    <button onclick="compileContract()">Compile</button>
-    <button onclick="deployContract()">Deploy</button>
-  </div>
-  <div>
-    <h3>ABI:</h3>
-    <pre id="abi"></pre>
-    <h3>Bytecode:</h3>
-    <pre id="bytecode"></pre>
-    <h3>Contract Address:</h3>
-    <pre id="address"></pre>
-  </div>  <script>
-    let compiledAbi = null;
-    let compiledBytecode = null;
+contract HelloWorld {
+    string public greet = "Hello, World!";
+}</textarea>
+    <div>
+        <button onclick="compileContract()">Compile</button>
+        <button onclick="deployContract()">Deploy</button>
+    </div>
+    <div>
+        <h3>ABI:</h3>
+        <pre id="abi"></pre>
+        <h3>Bytecode:</h3>
+        <pre id="bytecode"></pre>
+        <h3>Contract Address:</h3>
+        <pre id="address"></pre>
+    </div>
 
-    async function compileContract() {
-      const source = document.getElementById("code").value;
+    <script>
+        let compiledAbi = null;
+        let compiledBytecode = null;
 
-      const input = {
-        language: 'Solidity',
-        sources: {
-          'Contract.sol': {
-            content: source
-          }
-        },
-        settings: {
-          outputSelection: {
-            '*': {
-              '*': ['abi', 'evm.bytecode']
+        // Compile function
+        async function compileContract() {
+            const source = document.getElementById("code").value;
+            const input = {
+                language: "Solidity",
+                sources: {
+                    "Contract.sol": {
+                        content: source
+                    }
+                },
+                settings: {
+                    outputSelection: {
+                        "*": {
+                            "*": ["abi", "evm.bytecode"]
+                        }
+                    }
+                }
+            };
+
+            try {
+                const output = JSON.parse(solc.compile(JSON.stringify(input)));
+                const contractFile = output.contracts["Contract.sol"];
+                const contractName = Object.keys(contractFile)[0];
+
+                compiledAbi = contractFile[contractName].abi;
+                compiledBytecode = contractFile[contractName].evm.bytecode.object;
+
+                // Show ABI and Bytecode in output
+                document.getElementById("abi").textContent = JSON.stringify(compiledAbi, null, 2);
+                document.getElementById("bytecode").textContent = compiledBytecode;
+            } catch (error) {
+                alert("Error compiling contract: " + error.message);
             }
-          }
         }
-      };
 
-      const output = JSON.parse(solc.compile(JSON.stringify(input)));
-      const contractFile = output.contracts['Contract.sol'];
-      const contractName = Object.keys(contractFile)[0];
+        // Deploy function
+        async function deployContract() {
+            if (!compiledAbi || !compiledBytecode) {
+                return alert("Please compile the contract first.");
+            }
 
-      compiledAbi = contractFile[contractName].abi;
-      compiledBytecode = contractFile[contractName].evm.bytecode.object;
+            if (typeof window.ethereum === "undefined") {
+                return alert("MetaMask is not installed.");
+            }
 
-      document.getElementById("abi").textContent = JSON.stringify(compiledAbi, null, 2);
-      document.getElementById("bytecode").textContent = compiledBytecode;
-    }
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            const signer = provider.getSigner();
 
-    async function deployContract() {
-      if (!compiledAbi || !compiledBytecode) return alert("Please compile the contract first.");
-
-      if (typeof window.ethereum === 'undefined') {
-        return alert("MetaMask is not installed.");
-      }
-
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-      const signer = provider.getSigner();
-
-      const factory = new ethers.ContractFactory(compiledAbi, compiledBytecode, signer);
-      const contract = await factory.deploy();
-      await contract.deployed();
-
-      document.getElementById("address").textContent = contract.address;
-    }
-  </script></body>
+            const factory = new ethers.ContractFactory(compiledAbi, compiledBytecode, signer);
+            try {
+                const contract = await factory.deploy();
+                await contract.deployed();
+                document.getElementById("address").textContent = contract.address;
+            } catch (error) {
+                alert("Error deploying contract: " + error.message);
+            }
+        }
+    </script>
+</body>
 </html>
