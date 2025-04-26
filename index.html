@@ -1,175 +1,218 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Solidity Smart Contract Compiler & Deployer</title>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <script src="https://binaries.soliditylang.org/bin/soljson-v0.8.21+commit.d9974bed.js"></script>
-  <style>
-    body { font-family: monospace; background: #1e1e1e; color: #ddd; padding: 20px; }
-    textarea { width: 100%; height: 300px; background: #111; color: #0f0; border: 1px solid #333; padding: 10px; }
-    button { margin: 5px; padding: 10px 20px; background: #0f0; color: #111; border: none; cursor: pointer; }
-    #output, #abi, #bytecode, #status, #contractName { background: #111; padding: 10px; margin-top: 10px; white-space: pre-wrap; border: 1px solid #444; }
-    select { padding: 5px; background: #111; color: #fff; }
-    .error { color: red; }
-    .success { color: green; }
-    .contract-output { color: #ffcc00; font-weight: bold; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solidity Smart Contract Compiler and Deployer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #282c34;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 20px;
+        }
+        .feature {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 45%;
+        }
+        .feature h3 {
+            margin-top: 0;
+            color: #282c34;
+        }
+        .feature input, .feature select, .feature button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .feature label {
+            font-weight: bold;
+        }
+        .header-title {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        .sub-header {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+        footer {
+            text-align: center;
+            padding: 10px;
+            background-color: #282c34;
+            color: white;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
 </head>
 <body>
-  <h1>Solidity Smart Contract Compiler & Deployer</h1>
-  
-  <!-- Compiler Status -->
-  <div id="status">Loading compiler...</div>
-  
-  <!-- Solidity Version Selector -->
-  <label>Solidity Version (v0.8.21):</label>
-  <select id="version" disabled>
-    <option selected>v0.8.21</option>
-  </select>
-  
-  <!-- Contract Name Input -->
-  <label for="contract-name">Enter Contract Name:</label>
-  <input type="text" id="contract-name" placeholder="e.g., TestContract" />
+    <header>
+        <h1>Solidity Smart Contract Compiler and Deployer</h1>
+    </header>
 
-  <!-- Contract Code Input -->
-  <textarea id="code">// Write your Solidity code here
-pragma solidity ^0.8.21;
+    <div class="container">
+        <!-- Feature 1 - Version Selector -->
+        <div class="feature">
+            <h3>1. Version Selector</h3>
+            <label for="version">Select Compiler Version</label>
+            <select id="version">
+                <option value="0.8.0">0.8.0</option>
+                <option value="0.7.6">0.7.6</option>
+                <option value="0.6.12">0.6.12</option>
+            </select>
+        </div>
 
-contract Test {
-    uint public value;
+        <!-- Feature 2 - Contract Name Input -->
+        <div class="feature">
+            <h3>2. Contract Name Input</h3>
+            <label for="contract-name">Contract Name</label>
+            <input type="text" id="contract-name" placeholder="Enter contract name">
+        </div>
 
-    function set(uint _value) public {
-        value = _value;
-    }
-}</textarea>
+        <!-- Feature 3 - Code Editor -->
+        <div class="feature">
+            <h3>3. Smart Contract Code Editor</h3>
+            <label for="code-editor">Contract Code</label>
+            <textarea id="code-editor" rows="8" placeholder="Write your Solidity code here"></textarea>
+        </div>
 
-  <!-- Contract Actions -->
-  <button onclick="compileContract()">Compile</button>
-  <button onclick="deployContract()">Deploy</button>
-  <button onclick="clearConsole()">Clear Console</button>
-  <button onclick="clearState()">Clear State</button>
+        <!-- Feature 4 - Compile Button -->
+        <div class="feature">
+            <h3>4. Compile Button</h3>
+            <button id="compile-button">Compile Contract</button>
+        </div>
 
-  <!-- Output Sections -->
-  <div id="contractName"></div>
-  <h3>Bytecode</h3>
-  <div id="bytecode"></div>
-  <h3>ABI</h3>
-  <div id="abi"></div>
-  <h3>Deployment Status</h3>
-  <div id="output"></div>
+        <!-- Feature 5 - Compiler Output Display -->
+        <div class="feature">
+            <h3>5. Compiler Output Display</h3>
+            <textarea id="compile-output" rows="4" disabled placeholder="Compilation results will appear here"></textarea>
+        </div>
 
-  <!-- Gas estimation -->
-  <h3>Gas Estimation</h3>
-  <div id="gas"></div>
+        <!-- Feature 6 - Contract ABI Display -->
+        <div class="feature">
+            <h3>6. Contract ABI Display</h3>
+            <textarea id="contract-abi" rows="4" disabled placeholder="Contract ABI will appear here"></textarea>
+        </div>
 
-  <script>
-    let solcReady = false;
-    let compiledContract;
-    let provider, signer;
+        <!-- Feature 7 - Contract Bytecode Display -->
+        <div class="feature">
+            <h3>7. Contract Bytecode Display</h3>
+            <textarea id="contract-bytecode" rows="4" disabled placeholder="Contract bytecode will appear here"></textarea>
+        </div>
 
-    window.addEventListener('load', () => {
-      if (typeof window.Module !== 'undefined') {
-        window.solc = solc.setupMethods(solc);
-        solcReady = true;
-        document.getElementById('status').textContent = 'Compiler loaded';
+        <!-- Feature 8 - Gas Estimation -->
+        <div class="feature">
+            <h3>8. Gas Estimation</h3>
+            <label for="gas-estimate">Estimate Gas for Function</label>
+            <input type="number" id="gas-estimate" placeholder="Enter function gas estimate">
+        </div>
 
-        if (typeof window.ethereum !== 'undefined') {
-          provider = new ethers.providers.Web3Provider(window.ethereum);
-          provider.send("eth_requestAccounts", []).then(() => {
-            signer = provider.getSigner();
-            log('MetaMask connected');
-          });
-        } else {
-          log('MetaMask not detected');
-        }
-      } else {
-        document.getElementById('status').innerHTML = '<span class="error">Compiler failed to load.</span>';
-      }
-    });
+        <!-- Feature 9 - Gas Limit Input -->
+        <div class="feature">
+            <h3>9. Gas Limit Input</h3>
+            <label for="gas-limit">Set Gas Limit</label>
+            <input type="number" id="gas-limit" placeholder="Enter gas limit">
+        </div>
 
-    function log(msg) {
-      document.getElementById('output').innerText += msg + '\n';
-    }
+        <!-- Feature 10 - Gas Price Input -->
+        <div class="feature">
+            <h3>10. Gas Price Input</h3>
+            <label for="gas-price">Set Gas Price</label>
+            <input type="number" id="gas-price" placeholder="Enter gas price">
+        </div>
 
-    function clearConsole() {
-      document.getElementById('output').innerText = '';
-      document.getElementById('bytecode').innerText = '';
-      document.getElementById('abi').innerText = '';
-      document.getElementById('gas').innerText = '';
-    }
+        <!-- Feature 11 - Deploy Button -->
+        <div class="feature">
+            <h3>11. Deploy Button</h3>
+            <button id="deploy-button">Deploy Contract</button>
+        </div>
 
-    function clearState() {
-      document.getElementById('code').value = '';
-      document.getElementById('contract-name').value = '';
-      clearConsole();
-    }
+        <!-- Feature 12 - Wallet Address Input -->
+        <div class="feature">
+            <h3>12. Wallet Address Input</h3>
+            <label for="wallet-address">Wallet Address</label>
+            <input type="text" id="wallet-address" placeholder="Enter wallet address">
+        </div>
 
-    function compileContract() {
-      if (!solcReady) return log("Compiler not ready");
+        <!-- Feature 13 - Connect Wallet Button -->
+        <div class="feature">
+            <h3>13. Connect Wallet Button</h3>
+            <button id="connect-wallet">Connect Wallet</button>
+        </div>
 
-      const sourceCode = document.getElementById('code').value;
-      const input = {
-        language: "Solidity",
-        sources: {
-          "Contract.sol": {
-            content: sourceCode
-          }
-        },
-        settings: {
-          outputSelection: {
-            "*": {
-              "*": ["abi", "evm.bytecode"]
-            }
-          }
-        }
-      };
+        <!-- Feature 14 - Transaction Confirmation -->
+        <div class="feature">
+            <h3>14. Transaction Confirmation</h3>
+            <label for="transaction-status">Transaction Status</label>
+            <textarea id="transaction-status" rows="3" disabled placeholder="Transaction status will appear here"></textarea>
+        </div>
 
-      try {
-        const output = JSON.parse(solc.compile(JSON.stringify(input)));
-        if (output.errors) {
-          output.errors.forEach(e => {
-            const type = e.severity === 'error' ? '[ERROR]' : '[WARNING]';
-            log(`${type} ${e.formattedMessage}`);
-          });
-        }
+        <!-- Feature 15 - Network Selector -->
+        <div class="feature">
+            <h3>15. Network Selector</h3>
+            <label for="network-selector">Select Network</label>
+            <select id="network-selector">
+                <option value="mainnet">Ethereum Mainnet</option>
+                <option value="rinkeby">Rinkeby</option>
+                <option value="ropsten">Ropsten</option>
+            </select>
+        </div>
 
-        const contractName = document.getElementById('contract-name').value || Object.keys(output.contracts["Contract.sol"])[0];
-        compiledContract = output.contracts["Contract.sol"][contractName];
-        document.getElementById('contractName').textContent = `Contract Name: ${contractName}`;
+        <!-- Feature 16 - Custom Network Option -->
+        <div class="feature">
+            <h3>16. Custom Network Option</h3>
+            <label for="custom-network">Custom Network Endpoint</label>
+            <input type="text" id="custom-network" placeholder="Enter custom network endpoint">
+        </div>
 
-        log(`Compiled ${contractName}`);
-        document.getElementById('bytecode').textContent = compiledContract.evm.bytecode.object;
-        document.getElementById('abi').textContent = JSON.stringify(compiledContract.abi, null, 2);
-      } catch (err) {
-        log('[ERROR] ' + err.message);
-      }
-    }
+        <!-- Feature 17 - Contract Deployment Status -->
+        <div class="feature">
+            <h3>17. Contract Deployment Status</h3>
+            <textarea id="deployment-status" rows="3" disabled placeholder="Deployment status will appear here"></textarea>
+        </div>
 
-    async function deployContract() {
-      if (!compiledContract) return log("Compile first.");
-      try {
-        const factory = new ethers.ContractFactory(compiledContract.abi, compiledContract.evm.bytecode.object, signer);
+        <!-- Feature 18 - Transaction Hash Display -->
+        <div class="feature">
+            <h3>18. Transaction Hash Display</h3>
+            <textarea id="transaction-hash" rows="3" disabled placeholder="Transaction hash will appear here"></textarea>
+        </div>
 
-        // Gas estimation
-        const gasEstimate = await factory.estimateGas();
-        document.getElementById('gas').innerText = `Estimated Gas: ${gasEstimate.toString()}`;
+        <!-- Feature 19 - Transaction Receipt -->
+        <div class="feature">
+            <h3>19. Transaction Receipt</h3>
+            <textarea id="transaction-receipt" rows="3" disabled placeholder="Transaction receipt will appear here"></textarea>
+        </div>
 
-        log("Deploying contract...");
-        const contract = await factory.deploy();
-        await contract.deployed();
-        log("Contract deployed at: " + contract.address);
+        <!-- Feature 20 - Ether Balance Display -->
+        <div class="feature">
+            <h3>20. Ether Balance Display</h3>
+            <input type="number" id="ether-balance" disabled placeholder="Ether balance">
+        </div>
 
-        // Transaction Confirmation
-        const transaction = contract.deployTransaction;
-        log(`Transaction Hash: ${transaction.hash}`);
-        log(`Block Number: ${transaction.blockNumber}`);
+        <!-- Footer -->
+        <footer>
+            <p>Solidity Smart Contract Compiler & Deployer</p>
+        </footer>
+    </div>
 
-        // Optional: Verify contract on etherscan or other services (integrate after deployment)
-      } catch (err) {
-        log('[DEPLOY ERROR] ' + err.message);
-      }
-    }
-  </script>
 </body>
-</html>
+</html>                                                   
